@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "PortalLevelStreaming",
+	"Description": "Allows to (un)load independent or a group of streaming levels",
+	"Category": "Other",
+	"CreatedBy": "Michael Delva",
+	"CreatedByURL": "https://www.emidee.net",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "PortalLevelStreaming",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
