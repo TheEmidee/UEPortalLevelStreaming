@@ -162,7 +162,9 @@ void UPLSSubsystem::UnloadLevels( const bool load_levels_when_finished )
             continue;
         }
 
-        level_streaming->SetShouldBeLoaded( pair.Value.UnloadType == EPLSLevelStreamingUnloadType::HideAndUnload );
+        const auto should_be_loaded = pair.Value.UnloadType == EPLSLevelStreamingUnloadType::HideAndUnload;
+
+        level_streaming->SetShouldBeLoaded( should_be_loaded );
         level_streaming->SetShouldBeVisible( false );
         level_streaming->bShouldBlockOnUnload = pair.Value.bBlockOnUnload;
 
@@ -172,7 +174,7 @@ void UPLSSubsystem::UnloadLevels( const bool load_levels_when_finished )
             {
                 PlayerController->LevelStreamingStatusChanged(
                     level_streaming,
-                    false,
+                    should_be_loaded,
                     false,
                     pair.Value.bBlockOnUnload,
                     INDEX_NONE );
