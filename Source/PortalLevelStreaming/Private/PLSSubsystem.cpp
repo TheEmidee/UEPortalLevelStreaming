@@ -267,6 +267,7 @@ void UPLSSubsystem::OnLevelStreamingUnloaded()
 
     if ( LevelToUnloadCount == 0 )
     {
+        LevelsToUnloadMap.Reset();
         LoadLevels( false );
     }
 }
@@ -277,6 +278,7 @@ void UPLSSubsystem::OnLevelStreamingLoadedOrVisible()
 
     if ( LevelToLoadCount == 0 )
     {
+        LevelsToLoadMap.Reset();
         UnloadLevels( false );
     }
 }
