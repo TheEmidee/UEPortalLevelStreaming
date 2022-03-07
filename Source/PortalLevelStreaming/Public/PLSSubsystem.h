@@ -62,6 +62,13 @@ enum class EPLSLevelStreamingUnloadType : uint8
     HideAndUnload
 };
 
+UENUM()
+enum class EPLSLevelStreamingAlwaysLoadedLevelsUnloadType : uint8
+{
+    Hide,
+    Nothing
+};
+
 USTRUCT( BlueprintType )
 struct PORTALLEVELSTREAMING_API FPLSLevelStreamingLevelToUnloadInfos
 {
@@ -111,18 +118,21 @@ struct PORTALLEVELSTREAMING_API FPLSLevelStreamingInfos
 
     FPLSLevelStreamingInfos() :
         LoadOrder( EPLSLoadOrder::UnloadThenLoad ),
+        AlwaysLoadedLevelsUnloadType( EPLSLevelStreamingAlwaysLoadedLevelsUnloadType::Nothing )
     {
     }
 
     UPROPERTY( EditAnywhere )
     TArray< FPLSLevelStreamingLevelToLoadInfos > LevelsToLoad;
 
-    UPROPERTY( EditAnywhere )
+    UPROPERTY( EditAnywhere, meta = ( EditCondition = "UnloadCurrentStreamingLevelsInfos.bUnloadCurrentlyLoadedStreamingLevels == false" ) )
     TArray< FPLSLevelStreamingLevelToUnloadInfos > LevelsToUnload;
 
     UPROPERTY( EditAnywhere )
     EPLSLoadOrder LoadOrder;
 
+    UPROPERTY( EditAnywhere )
+    EPLSLevelStreamingAlwaysLoadedLevelsUnloadType AlwaysLoadedLevelsUnloadType;
 
     UPROPERTY( EditAnywhere )
     FPLSUnloadCurrentStreamingLevelInfos UnloadCurrentStreamingLevelsInfos;

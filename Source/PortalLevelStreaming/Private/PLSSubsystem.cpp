@@ -160,8 +160,10 @@ void UPLSSubsystem::UnloadLevels( const bool load_levels_when_finished )
     for ( const auto & pair : LevelsToUnloadMap )
     {
         auto * level_streaming = pair.Key;
+        const auto should_be_unloaded = pair.Value.UnloadType == EPLSLevelStreamingUnloadType::HideAndUnload;
 
-        if ( !level_streaming->IsLevelLoaded() )
+        if ( should_be_unloaded && !level_streaming->IsLevelLoaded() 
+            || pair.Value.UnloadType == EPLSLevelStreamingUnloadType::Hide && !level_streaming->IsLevelVisible() )
         {
             continue;
         }
