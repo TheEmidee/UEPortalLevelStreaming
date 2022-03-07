@@ -37,28 +37,32 @@ void UPLSSubsystem::UpdateStreamedLevelsWithCallback( const FPLSLevelStreamingIn
         level_streaming->OnLevelLoaded.RemoveAll( this );
     }
 
+    const auto add_level_to_unload = [ this, &infos ]( ULevelStreaming * level_streaming, const auto & params ) {
+        if ( level_streaming->ShouldBeAlwaysLoaded() && infos.AlwaysLoadedLevelsUnloadType == EPLSLevelStreamingAlwaysLoadedLevelsUnloadType::Nothing )
+        {
+            return;
+        }
+        LevelsToUnloadMap.FindOrAdd( level_streaming, { params.bBlockOnUnload, params.UnloadType } );
+    };
+
     if ( infos.UnloadCurrentStreamingLevelsInfos.bUnloadCurrentlyLoadedStreamingLevels )
     {
         for ( auto * level_streaming : streaming_levels )
         {
-            LevelsToUnloadMap.FindOrAdd( level_streaming, { infos.UnloadCurrentStreamingLevelsInfos.bBlockOnUnload, infos.UnloadCurrentStreamingLevelsInfos.UnloadType } );
+            add_level_to_unload( level_streaming, infos.UnloadCurrentStreamingLevelsInfos );
         }
     }
     else
     {
         for ( const auto & levels_to_unload : infos.LevelsToUnload )
         {
-            const auto add_level_to_unload = [ &levels_to_unload, this ]( ULevelStreaming * level_streaming ) {
-                LevelsToUnloadMap.FindOrAdd( level_streaming, { levels_to_unload.bBlockOnUnload, levels_to_unload.UnloadType } );
-            };
-
             for ( auto * level_group : levels_to_unload.Levels.LevelGroups )
             {
                 for ( const auto & level_to_unload : level_group->Levels )
                 {
                     if ( auto * level_streaming = FindLevelStreaming( level_to_unload ) )
                     {
-                        add_level_to_unload( level_streaming );
+                        add_level_to_unload( level_streaming, levels_to_unload );
                     }
                 }
             }
@@ -67,7 +71,7 @@ void UPLSSubsystem::UpdateStreamedLevelsWithCallback( const FPLSLevelStreamingIn
             {
                 if ( auto * level_streaming = FindLevelStreaming( level_to_unload ) )
                 {
-                    add_level_to_unload( level_streaming );
+                    add_level_to_unload( level_streaming, levels_to_unload );
                 }
             }
         }
@@ -75,7 +79,7 @@ void UPLSSubsystem::UpdateStreamedLevelsWithCallback( const FPLSLevelStreamingIn
 
     for ( const auto & levels_to_load : infos.LevelsToLoad )
     {
-        const auto add_level_to_unload = [ &levels_to_load, this ]( ULevelStreaming * level_streaming ) {
+        const auto add_level_to_load = [ &levels_to_load, this ]( ULevelStreaming * level_streaming ) {
             LevelsToLoadMap.FindOrAdd( level_streaming, { levels_to_load.bBlockOnLoad, levels_to_load.LoadType } );
             LevelsToUnloadMap.Remove( level_streaming );
         };
@@ -86,7 +90,7 @@ void UPLSSubsystem::UpdateStreamedLevelsWithCallback( const FPLSLevelStreamingIn
             {
                 if ( auto * level_streaming = FindLevelStreaming( level_to_unload ) )
                 {
-                    add_level_to_unload( level_streaming );
+                    add_level_to_load( level_streaming );
                 }
             }
         }
@@ -95,7 +99,7 @@ void UPLSSubsystem::UpdateStreamedLevelsWithCallback( const FPLSLevelStreamingIn
         {
             if ( auto * level_streaming = FindLevelStreaming( level_to_unload ) )
             {
-                add_level_to_unload( level_streaming );
+                add_level_to_load( level_streaming );
             }
         }
     }
