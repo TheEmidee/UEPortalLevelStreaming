@@ -104,9 +104,9 @@ void UPLSSubsystem::UpdateStreamedLevelsWithCallback( const FPLSLevelStreamingIn
         }
     }
 
-    switch ( infos.LoadPolicy )
+    switch ( infos.LoadOrder )
     {
-        case EPLSLoadPolicy::UnloadAndLoadInParallel:
+        case EPLSLoadOrder::UnloadAndLoadInParallel:
         {
             UnloadLevels( false );
             LoadLevels( false );
@@ -114,12 +114,12 @@ void UPLSSubsystem::UpdateStreamedLevelsWithCallback( const FPLSLevelStreamingIn
             OnRequestFinishedDelegate.ExecuteIfBound();
         }
         break;
-        case EPLSLoadPolicy::LoadThenUnload:
+        case EPLSLoadOrder::LoadThenUnload:
         {
             LoadLevels( true );
         }
         break;
-        case EPLSLoadPolicy::UnloadThenLoad:
+        case EPLSLoadOrder::UnloadThenLoad:
         {
             UnloadLevels( true );
         }

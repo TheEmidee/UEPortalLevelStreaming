@@ -8,7 +8,7 @@
 class UPLSLevelGroup;
 
 UENUM()
-enum class EPLSLoadPolicy : uint8
+enum class EPLSLoadOrder : uint8
 {
     UnloadThenLoad,
     LoadThenUnload,
@@ -110,7 +110,7 @@ struct PORTALLEVELSTREAMING_API FPLSLevelStreamingInfos
     GENERATED_USTRUCT_BODY()
 
     FPLSLevelStreamingInfos() :
-        LoadPolicy( EPLSLoadPolicy::UnloadThenLoad )
+        LoadOrder( EPLSLoadOrder::UnloadThenLoad ),
     {
     }
 
@@ -121,7 +121,8 @@ struct PORTALLEVELSTREAMING_API FPLSLevelStreamingInfos
     TArray< FPLSLevelStreamingLevelToUnloadInfos > LevelsToUnload;
 
     UPROPERTY( EditAnywhere )
-    EPLSLoadPolicy LoadPolicy;
+    EPLSLoadOrder LoadOrder;
+
 
     UPROPERTY( EditAnywhere )
     FPLSUnloadCurrentStreamingLevelInfos UnloadCurrentStreamingLevelsInfos;
