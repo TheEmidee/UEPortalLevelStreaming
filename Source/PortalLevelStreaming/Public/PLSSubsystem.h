@@ -1,12 +1,12 @@
 #pragma once
 
 #include <CoreMinimal.h>
-#include <Engine/LevelStreaming.h>
 #include <Subsystems/WorldSubsystem.h>
 
 #include "PLSSubsystem.generated.h"
 
 class UPLSLevelGroup;
+class ULevelStreaming;
 
 UENUM()
 enum class EPLSLoadOrder : uint8
