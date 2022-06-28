@@ -1,6 +1,7 @@
 #pragma once
 
 #include <CoreMinimal.h>
+#include <Engine/LevelStreaming.h>
 #include <Subsystems/WorldSubsystem.h>
 
 #include "PLSSubsystem.generated.h"
@@ -138,7 +139,7 @@ struct PORTALLEVELSTREAMING_API FPLSLevelStreamingInfos
     FPLSUnloadCurrentStreamingLevelInfos UnloadCurrentStreamingLevelsInfos;
 };
 
-DECLARE_MULTICAST_DELEGATE( FPLSOnStreamedLevelsRequestFinished );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FPLSOnStreamedLevelsRequestFinished, const FPLSLevelStreamingInfos &, infos );
 
 UCLASS()
 class PORTALLEVELSTREAMING_API UPLSSubsystem final : public UWorldSubsystem
@@ -151,7 +152,7 @@ public:
     UFUNCTION( BlueprintCallable )
     void UpdateStreamedLevels( const FPLSLevelStreamingInfos & infos );
 
-    void UpdateStreamedLevelsWithCallback( const FPLSLevelStreamingInfos & infos, FPLSOnStreamedLevelsRequestFinished::FDelegate delegate );
+    FPLSOnStreamedLevelsRequestFinished & GetOnRequestFinishedDelegate();
 
 private:
     struct FUnloadLevelInfos
@@ -189,10 +190,21 @@ private:
     UFUNCTION()
     void OnLevelStreamingLoadedOrVisible();
 
+    UPROPERTY( BlueprintAssignable )
+    FPLSOnStreamedLevelsRequestFinished OnRequestFinishedDelegate;
+
+    UPROPERTY()
+    FPLSLevelStreamingInfos CurrentLevelStreamingInfos;
+
     TMap< ULevelStreaming *, FUnloadLevelInfos > LevelsToUnloadMap;
     TMap< ULevelStreaming *, FLoadLevelInfos > LevelsToLoadMap;
+
     int LevelToUnloadCount;
     int LevelToLoadCount;
     uint8 bIsProcessingRequest : 1;
-    FPLSOnStreamedLevelsRequestFinished::FDelegate OnRequestFinishedDelegate;
 };
+
+FORCEINLINE FPLSOnStreamedLevelsRequestFinished & UPLSSubsystem::GetOnRequestFinishedDelegate()
+{
+    return OnRequestFinishedDelegate;
+}
