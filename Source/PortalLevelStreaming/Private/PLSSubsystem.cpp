@@ -14,18 +14,12 @@ UPLSSubsystem::UPLSSubsystem() :
 
 void UPLSSubsystem::UpdateStreamedLevels( const FPLSLevelStreamingInfos & infos )
 {
-    UpdateStreamedLevelsWithCallback( infos, FPLSOnStreamedLevelsRequestFinished::FDelegate() );
-}
-
-void UPLSSubsystem::UpdateStreamedLevelsWithCallback( const FPLSLevelStreamingInfos & infos, FPLSOnStreamedLevelsRequestFinished::FDelegate delegate )
-{
-    if ( bIsProcessingRequest )
+    if ( !ensureAlwaysMsgf( !bIsProcessingRequest, TEXT( "%s: A request is still pending! The new request will not be processed!" ), TEXT( __FUNCTION__ ) ) )
     {
         return;
     }
 
-    OnRequestFinishedDelegate = delegate;
-
+    CurrentLevelStreamingInfos = infos;
     bIsProcessingRequest = true;
 
     const auto & streaming_levels = GetWorld()->GetStreamingLevels();
@@ -111,7 +105,7 @@ void UPLSSubsystem::UpdateStreamedLevelsWithCallback( const FPLSLevelStreamingIn
             UnloadLevels( false );
             LoadLevels( false );
             bIsProcessingRequest = false;
-            OnRequestFinishedDelegate.ExecuteIfBound();
+            OnRequestFinishedDelegate.Broadcast( infos );
         }
         break;
         case EPLSLoadOrder::LoadThenUnload:
@@ -152,7 +146,7 @@ ULevelStreaming * UPLSSubsystem::FindLevelStreaming( const FSoftObjectPath & sof
 void UPLSSubsystem::FinishProcessingRequest()
 {
     bIsProcessingRequest = false;
-    OnRequestFinishedDelegate.ExecuteIfBound();
+    OnRequestFinishedDelegate.Broadcast( CurrentLevelStreamingInfos );
 }
 
 void UPLSSubsystem::UnloadLevels( const bool load_levels_when_finished )
@@ -162,8 +156,7 @@ void UPLSSubsystem::UnloadLevels( const bool load_levels_when_finished )
         auto * level_streaming = pair.Key;
         const auto should_be_unloaded = pair.Value.UnloadType == EPLSLevelStreamingUnloadType::HideAndUnload;
 
-        if ( should_be_unloaded && !level_streaming->IsLevelLoaded() 
-            || pair.Value.UnloadType == EPLSLevelStreamingUnloadType::Hide && !level_streaming->IsLevelVisible() )
+        if ( should_be_unloaded && !level_streaming->IsLevelLoaded() || pair.Value.UnloadType == EPLSLevelStreamingUnloadType::Hide && !level_streaming->IsLevelVisible() )
         {
             continue;
         }
