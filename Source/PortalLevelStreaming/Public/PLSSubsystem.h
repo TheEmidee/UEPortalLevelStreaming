@@ -147,12 +147,13 @@ class PORTALLEVELSTREAMING_API UPLSSubsystem final : public UWorldSubsystem
     GENERATED_BODY()
 
 public:
+    FPLSOnStreamedLevelsRequestFinished & GetOnRequestFinishedDelegate();
+    const FPLSLevelStreamingInfos & GetCurrentLevelStreamingInfos();
+
     UPLSSubsystem();
 
     UFUNCTION( BlueprintCallable )
     void UpdateStreamedLevels( const FPLSLevelStreamingInfos & infos );
-
-    FPLSOnStreamedLevelsRequestFinished & GetOnRequestFinishedDelegate();
 
 private:
     struct FUnloadLevelInfos
@@ -207,4 +208,9 @@ private:
 FORCEINLINE FPLSOnStreamedLevelsRequestFinished & UPLSSubsystem::GetOnRequestFinishedDelegate()
 {
     return OnRequestFinishedDelegate;
+}
+
+FORCEINLINE const FPLSLevelStreamingInfos & UPLSSubsystem::GetCurrentLevelStreamingInfos()
+{
+    return CurrentLevelStreamingInfos;
 }
