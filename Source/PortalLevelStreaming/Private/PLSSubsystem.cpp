@@ -14,7 +14,7 @@ UPLSSubsystem::UPLSSubsystem() :
 
 void UPLSSubsystem::UpdateStreamedLevels( const FPLSLevelStreamingInfos & infos )
 {
-    if ( !ensureAlwaysMsgf( !bIsProcessingRequest, TEXT( "%s: A request is still pending! The new request will not be processed!" ), TEXT( __FUNCTION__ ) ) )
+    if ( !ensureAlwaysMsgf( !bIsProcessingRequest, TEXT( "%s: A request is still pending! The new request will not be processed!" ), StringCast< TCHAR >( __FUNCTION__ ).Get() ) )
     {
         return;
     }
