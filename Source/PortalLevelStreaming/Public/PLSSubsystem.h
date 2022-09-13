@@ -21,7 +21,7 @@ class PORTALLEVELSTREAMING_API UPLSSubsystem final : public UWorldSubsystem
 public:
     FPLSOnRequestExecutedDynamicMulticastDelegate & OnRequestExecuted();
 
-    UFUNCTION( BlueprintCallable, meta = ( DisplayName = "Add Streaming Request", AutoCreateRefTerm = "request_executed_delegate" ) )
+    UFUNCTION( BlueprintCallable, BlueprintAuthorityOnly, meta = ( DisplayName = "Add Streaming Request", AutoCreateRefTerm = "request_executed_delegate" ) )
     FPLSLevelStreamingRequestHandle K2_AddRequest( const FPLSLevelStreamingInfos & infos, const FPLSOnRequestExecutedDynamicDelegate & request_executed_delegate, bool cancel_existing_requests = false );
 
     FPLSLevelStreamingRequestHandle AddRequest( const FPLSLevelStreamingInfos & infos, FPLSOnRequestExecutedDelegate request_executed_delegate = FPLSOnRequestExecutedDelegate(), bool cancel_existing_requests = false );
