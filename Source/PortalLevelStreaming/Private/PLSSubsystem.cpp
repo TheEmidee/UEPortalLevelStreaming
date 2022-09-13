@@ -1,279 +1,83 @@
 #include "PLSSubsystem.h"
 
-#include "PLSLevelGroup.h"
-
 #include <Engine/LevelStreaming.h>
-#include <Kismet/GameplayStatics.h>
 
-UPLSSubsystem::UPLSSubsystem() :
-    LevelToUnloadCount( 0 ),
-    LevelToLoadCount( 0 ),
-    bIsProcessingRequest( false )
+FPLSLevelStreamingRequestHandle UPLSSubsystem::K2_AddRequest( const FPLSLevelStreamingInfos & infos, const FPLSOnRequestExecutedDynamicDelegate & request_executed_delegate, bool cancel_existing_requests )
 {
+    const auto executed_delegate = FPLSOnRequestExecutedDelegate::CreateWeakLambda( const_cast< UObject * >( request_executed_delegate.GetUObject() ), [ this, request_executed_delegate ]( const auto handle ) {
+        request_executed_delegate.ExecuteIfBound( handle );
+        OnRequestExecuted( handle );
+    } );
+
+    return AddRequest( infos, executed_delegate, cancel_existing_requests );
 }
 
-void UPLSSubsystem::UpdateStreamedLevels( const FPLSLevelStreamingInfos & infos )
+FPLSLevelStreamingRequestHandle UPLSSubsystem::AddRequest( const FPLSLevelStreamingInfos & infos, FPLSOnRequestExecutedDelegate request_executed_delegate, bool cancel_existing_requests )
 {
-    if ( !ensureAlwaysMsgf( !bIsProcessingRequest, TEXT( "%s: A request is still pending! The new request will not be processed!" ), StringCast< TCHAR >( __FUNCTION__ ).Get() ) )
+    const auto * world = GetWorld();
+
+    if ( cancel_existing_requests )
+    {
+        for ( const auto & request : Requests )
+        {
+            request->Cancel();
+        }
+        Requests.Reset();
+    }
+
+    auto * request = NewObject< UPLSRequest >( this );
+
+    const auto executed_delegate = FPLSOnRequestExecutedDelegate::CreateWeakLambda( this, [ this, request_executed_delegate ]( const auto handle ) {
+        request_executed_delegate.ExecuteIfBound( handle );
+        OnRequestExecuted( handle );
+    } );
+
+    request->Initialize( infos, executed_delegate );
+
+    Requests.Emplace( request );
+
+    world->GetTimerManager().SetTimerForNextTick( this, &ThisClass::ProcessNextRequest );
+
+    return request->GetHandle();
+}
+
+TOptional< FPLSLevelStreamingInfos > UPLSSubsystem::GetRequestInfos( FPLSLevelStreamingRequestHandle request_handle ) const
+{
+    if ( auto * infos = RequestHandleToInfosMap.Find( request_handle ) )
+    {
+        return *infos;
+    }
+
+    return TOptional< FPLSLevelStreamingInfos >();
+}
+
+void UPLSSubsystem::OnRequestExecuted( FPLSLevelStreamingRequestHandle handle )
+{
+    Requests.RemoveAll( [ handle ]( auto * request ) {
+        const auto result = request->GetHandle() == handle;
+        check( !request->IsExecuting() );
+        return result;
+    } );
+
+    RequestHandleToInfosMap.Remove( handle );
+
+    OnRequestExecutedDelegate.Broadcast( handle );
+    ProcessNextRequest();
+}
+
+void UPLSSubsystem::ProcessNextRequest()
+{
+    if ( Requests.IsEmpty() )
     {
         return;
     }
 
-    CurrentLevelStreamingInfos = infos;
-    bIsProcessingRequest = true;
+    auto * request = Requests[ 0 ];
 
-    const auto & streaming_levels = GetWorld()->GetStreamingLevels();
-
-    for ( auto * level_streaming : streaming_levels )
+    if ( request->IsExecuting() )
     {
-        level_streaming->OnLevelShown.RemoveAll( this );
-        level_streaming->OnLevelHidden.RemoveAll( this );
-        level_streaming->OnLevelLoaded.RemoveAll( this );
+        return;
     }
 
-    const auto add_level_to_unload = [ this, &infos ]( ULevelStreaming * level_streaming, const auto & params ) {
-        if ( level_streaming->ShouldBeAlwaysLoaded() && infos.AlwaysLoadedLevelsUnloadType == EPLSLevelStreamingAlwaysLoadedLevelsUnloadType::Nothing )
-        {
-            return;
-        }
-        LevelsToUnloadMap.FindOrAdd( level_streaming, { params.bBlockOnUnload, params.UnloadType } );
-    };
-
-    if ( infos.UnloadCurrentStreamingLevelsInfos.bUnloadCurrentlyLoadedStreamingLevels )
-    {
-        for ( auto * level_streaming : streaming_levels )
-        {
-            add_level_to_unload( level_streaming, infos.UnloadCurrentStreamingLevelsInfos );
-        }
-    }
-    else
-    {
-        for ( const auto & levels_to_unload : infos.LevelsToUnload )
-        {
-            for ( auto * level_group : levels_to_unload.Levels.LevelGroups )
-            {
-                for ( const auto & level_to_unload : level_group->Levels )
-                {
-                    if ( auto * level_streaming = FindLevelStreaming( level_to_unload ) )
-                    {
-                        add_level_to_unload( level_streaming, levels_to_unload );
-                    }
-                }
-            }
-
-            for ( const auto & level_to_unload : levels_to_unload.Levels.IndividualLevels )
-            {
-                if ( auto * level_streaming = FindLevelStreaming( level_to_unload ) )
-                {
-                    add_level_to_unload( level_streaming, levels_to_unload );
-                }
-            }
-        }
-    }
-
-    for ( const auto & levels_to_load : infos.LevelsToLoad )
-    {
-        const auto add_level_to_load = [ &levels_to_load, this ]( ULevelStreaming * level_streaming ) {
-            LevelsToLoadMap.FindOrAdd( level_streaming, { levels_to_load.bBlockOnLoad, levels_to_load.LoadType } );
-            LevelsToUnloadMap.Remove( level_streaming );
-        };
-
-        for ( auto * level_group : levels_to_load.Levels.LevelGroups )
-        {
-            for ( const auto & level_to_unload : level_group->Levels )
-            {
-                if ( auto * level_streaming = FindLevelStreaming( level_to_unload ) )
-                {
-                    add_level_to_load( level_streaming );
-                }
-            }
-        }
-
-        for ( const auto & level_to_unload : levels_to_load.Levels.IndividualLevels )
-        {
-            if ( auto * level_streaming = FindLevelStreaming( level_to_unload ) )
-            {
-                add_level_to_load( level_streaming );
-            }
-        }
-    }
-
-    switch ( infos.LoadOrder )
-    {
-        case EPLSLoadOrder::UnloadAndLoadInParallel:
-        {
-            UnloadLevels( false );
-            LoadLevels( false );
-            bIsProcessingRequest = false;
-            OnRequestFinishedDelegate.Broadcast( infos );
-        }
-        break;
-        case EPLSLoadOrder::LoadThenUnload:
-        {
-            LoadLevels( true );
-        }
-        break;
-        case EPLSLoadOrder::UnloadThenLoad:
-        {
-            UnloadLevels( true );
-        }
-        break;
-        default:
-        {
-            checkNoEntry();
-        }
-        break;
-    }
-}
-
-ULevelStreaming * UPLSSubsystem::FindLevelStreaming( const FSoftObjectPath & soft_object_path ) const
-{
-    const auto level_name = FName( *FPackageName::ObjectPathToPackageName( soft_object_path.ToString() ) );
-    const auto safe_level_name = FStreamLevelAction::MakeSafeLevelName( level_name, GetWorld() );
-    const auto & streaming_levels = GetWorld()->GetStreamingLevels();
-
-    for ( auto * level_streaming : streaming_levels )
-    {
-        if ( level_streaming != nullptr && level_streaming->GetWorldAssetPackageName().EndsWith( safe_level_name, ESearchCase::IgnoreCase ) )
-        {
-            return level_streaming;
-        }
-    }
-
-    return nullptr;
-}
-
-void UPLSSubsystem::FinishProcessingRequest()
-{
-    bIsProcessingRequest = false;
-    OnRequestFinishedDelegate.Broadcast( CurrentLevelStreamingInfos );
-}
-
-void UPLSSubsystem::UnloadLevels( const bool load_levels_when_finished )
-{
-    for ( const auto & pair : LevelsToUnloadMap )
-    {
-        auto * level_streaming = pair.Key;
-        const auto should_be_unloaded = pair.Value.UnloadType == EPLSLevelStreamingUnloadType::HideAndUnload;
-
-        if ( should_be_unloaded && !level_streaming->IsLevelLoaded() || pair.Value.UnloadType == EPLSLevelStreamingUnloadType::Hide && !level_streaming->IsLevelVisible() )
-        {
-            continue;
-        }
-
-        level_streaming->SetShouldBeLoaded( !should_be_unloaded );
-        level_streaming->SetShouldBeVisible( false );
-        level_streaming->bShouldBlockOnUnload = pair.Value.bBlockOnUnload;
-
-        for ( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
-        {
-            if ( APlayerController * PlayerController = Iterator->Get() )
-            {
-                PlayerController->LevelStreamingStatusChanged(
-                    level_streaming,
-                    !should_be_unloaded,
-                    false,
-                    pair.Value.bBlockOnUnload,
-                    INDEX_NONE );
-            }
-        }
-
-        LevelToUnloadCount++;
-
-        level_streaming->OnLevelHidden.AddDynamic( this, &UPLSSubsystem::OnLevelStreamingUnloaded );
-    }
-
-    if ( LevelToUnloadCount == 0 )
-    {
-        if ( load_levels_when_finished )
-        {
-            LoadLevels( false );
-        }
-        else
-        {
-            FinishProcessingRequest();
-        }
-    }
-}
-
-void UPLSSubsystem::LoadLevels( const bool unload_levels_when_finished )
-{
-    for ( const auto & pair : LevelsToLoadMap )
-    {
-        auto * level_streaming = pair.Key;
-
-        if ( level_streaming->IsLevelVisible() && pair.Value.LoadType == EPLSLevelStreamingLoadType::LoadAndMakeVisible )
-        {
-            continue;
-        }
-
-        if ( level_streaming->IsLevelLoaded() && pair.Value.LoadType == EPLSLevelStreamingLoadType::Load )
-        {
-            continue;
-        }
-
-        const auto make_visible = pair.Value.LoadType == EPLSLevelStreamingLoadType::LoadAndMakeVisible;
-
-        level_streaming->SetShouldBeLoaded( true );
-        level_streaming->SetShouldBeVisible( make_visible );
-        level_streaming->bShouldBlockOnLoad = pair.Value.bBlockOnLoad;
-
-        for ( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
-        {
-            if ( APlayerController * PlayerController = Iterator->Get() )
-            {
-                PlayerController->LevelStreamingStatusChanged(
-                    level_streaming,
-                    true,
-                    make_visible,
-                    pair.Value.bBlockOnLoad,
-                    INDEX_NONE );
-            }
-        }
-
-        LevelToLoadCount++;
-
-        if ( make_visible )
-        {
-            level_streaming->OnLevelShown.AddDynamic( this, &UPLSSubsystem::OnLevelStreamingLoadedOrVisible );
-        }
-        else
-        {
-            level_streaming->OnLevelLoaded.AddDynamic( this, &UPLSSubsystem::OnLevelStreamingLoadedOrVisible );
-        }
-    }
-
-    if ( LevelToLoadCount == 0 )
-    {
-        if ( unload_levels_when_finished )
-        {
-            UnloadLevels( false );
-        }
-        else
-        {
-            FinishProcessingRequest();
-        }
-    }
-}
-
-void UPLSSubsystem::OnLevelStreamingUnloaded()
-{
-    LevelToUnloadCount--;
-
-    if ( LevelToUnloadCount == 0 )
-    {
-        LevelsToUnloadMap.Reset();
-        LoadLevels( false );
-    }
-}
-
-void UPLSSubsystem::OnLevelStreamingLoadedOrVisible()
-{
-    LevelToLoadCount--;
-
-    if ( LevelToLoadCount == 0 )
-    {
-        LevelsToLoadMap.Reset();
-        UnloadLevels( false );
-    }
+    request->Process();
 }
