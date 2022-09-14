@@ -159,11 +159,11 @@ void UPLSRequest::UnloadLevels( const bool load_levels_when_finished )
         level_streaming->SetShouldBeVisible( false );
         level_streaming->bShouldBlockOnUnload = pair.Value.bBlockOnUnload;
 
-        for ( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
+        for ( auto iterator = GetWorld()->GetPlayerControllerIterator(); iterator; ++iterator )
         {
-            if ( APlayerController * PlayerController = Iterator->Get() )
+            if ( auto * player_controller = iterator->Get() )
             {
-                PlayerController->LevelStreamingStatusChanged(
+                player_controller->LevelStreamingStatusChanged(
                     level_streaming,
                     !should_be_unloaded,
                     false,
@@ -212,11 +212,11 @@ void UPLSRequest::LoadLevels( const bool unload_levels_when_finished )
         level_streaming->SetShouldBeVisible( make_visible );
         level_streaming->bShouldBlockOnLoad = pair.Value.bBlockOnLoad;
 
-        for ( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
+        for ( auto iterator = GetWorld()->GetPlayerControllerIterator(); iterator; ++iterator )
         {
-            if ( APlayerController * PlayerController = Iterator->Get() )
+            if ( auto * player_controller = iterator->Get() )
             {
-                PlayerController->LevelStreamingStatusChanged(
+                player_controller->LevelStreamingStatusChanged(
                     level_streaming,
                     true,
                     make_visible,
