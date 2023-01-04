@@ -51,6 +51,18 @@ TOptional< FPLSLevelStreamingInfos > UPLSSubsystem::GetRequestInfos( FPLSLevelSt
     return TOptional< FPLSLevelStreamingInfos >();
 }
 
+void UPLSSubsystem::CallOrRegister_OnAllRequestsFinished( FPLSOnAllRequestsFinishedDelegate::FDelegate delegate )
+{
+    if ( Requests.IsEmpty() )
+    {
+        delegate.Execute();
+    }
+    else
+    {
+        OnAllRequestsFinishedDelegate.Add( MoveTemp( delegate ) );
+    }
+}
+
 void UPLSSubsystem::OnRequestExecuted( FPLSLevelStreamingRequestHandle handle )
 {
     Requests.RemoveAll( [ handle ]( auto * request ) {
@@ -69,6 +81,8 @@ void UPLSSubsystem::ProcessNextRequest()
 {
     if ( Requests.IsEmpty() )
     {
+        OnAllRequestsFinishedDelegate.Broadcast();
+        OnAllRequestsFinishedDelegate.Clear();
         return;
     }
 

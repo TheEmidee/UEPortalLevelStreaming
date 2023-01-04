@@ -12,6 +12,7 @@ class UPLSLevelGroup;
 class ULevelStreaming;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FPLSOnRequestExecutedDynamicMulticastDelegate, FPLSLevelStreamingRequestHandle, handle );
+DECLARE_MULTICAST_DELEGATE( FPLSOnAllRequestsFinishedDelegate );
 
 UCLASS()
 class PORTALLEVELSTREAMING_API UPLSSubsystem final : public UWorldSubsystem
@@ -28,6 +29,8 @@ public:
 
     TOptional< FPLSLevelStreamingInfos > GetRequestInfos( FPLSLevelStreamingRequestHandle request_handle ) const;
 
+    void CallOrRegister_OnAllRequestsFinished( FPLSOnAllRequestsFinishedDelegate::FDelegate delegate );
+
 private:
     void OnRequestExecuted( FPLSLevelStreamingRequestHandle handle );
     void ProcessNextRequest();
@@ -37,6 +40,7 @@ private:
 
     TMap< FPLSLevelStreamingRequestHandle, FPLSLevelStreamingInfos > RequestHandleToInfosMap;
     FPLSOnRequestExecutedDynamicMulticastDelegate OnRequestExecutedDelegate;
+    FPLSOnAllRequestsFinishedDelegate OnAllRequestsFinishedDelegate;
 };
 
 FORCEINLINE FPLSOnRequestExecutedDynamicMulticastDelegate & UPLSSubsystem::OnRequestExecuted()
