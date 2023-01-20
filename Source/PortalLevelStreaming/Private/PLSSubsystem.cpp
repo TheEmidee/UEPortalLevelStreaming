@@ -38,6 +38,8 @@ FPLSLevelStreamingRequestHandle UPLSSubsystem::AddRequest( const FPLSLevelStream
 
     world->GetTimerManager().SetTimerForNextTick( this, &ThisClass::ProcessNextRequest );
 
+    RequestHandleToInfosMap.Add( request->GetHandle(), infos );
+
     return request->GetHandle();
 }
 
@@ -71,9 +73,9 @@ void UPLSSubsystem::OnRequestExecuted( FPLSLevelStreamingRequestHandle handle )
         return result;
     } );
 
+    OnRequestExecutedDelegate.Broadcast( handle );
     RequestHandleToInfosMap.Remove( handle );
 
-    OnRequestExecutedDelegate.Broadcast( handle );
     ProcessNextRequest();
 }
 
